@@ -312,13 +312,16 @@ napi_value AudioIO::Write(napi_env env, napi_callback_info info) {
 
 void quitExecute(napi_env env, void* data) {
   asyncCarrier* c = (asyncCarrier*) data;
+  printf("@@##:");
   c->mPaContext->quit();
   c->mPaContext->stop(c->mStopFlag);
+  printf("quitExecute:\n");
 }
 
 void quitComplete(napi_env env, napi_status asyncStatus, void* data) {
   asyncCarrier* c = (asyncCarrier*) data;
   napi_value result;
+  printf("$$$###:");
 
   c->status = napi_get_undefined(env, &result);
   REJECT_STATUS;
@@ -328,6 +331,7 @@ void quitComplete(napi_env env, napi_status asyncStatus, void* data) {
   FLOATING_STATUS;
 
   tidyCarrier(env, c);
+  printf("quitComplete:\n");
 }
 
 napi_value AudioIO::Quit(napi_env env, napi_callback_info info) {
@@ -345,29 +349,34 @@ napi_value AudioIO::Quit(napi_env env, napi_callback_info info) {
   c->status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   REJECT_RETURN;
 
+  printf("argc:%d", argc);
   if (argc != 1)
     NAPI_THROW_ERROR("AudioIO Quit expects 1 argument");
 
   c->status = napi_get_value_string_utf8(env, args[0], nullptr, 0, &strLen);
+  
   REJECT_RETURN;
   char* stopFlag = (char*) malloc(sizeof(char) * (strLen + 1));
   c->status = napi_get_value_string_utf8(env, args[0], stopFlag, strLen + 1, &strLen);
   REJECT_RETURN;
 
   std::string stopFlagStr = stopFlag;
+  printf("stopFlagStr:%s", stopFlagStr);
   if ((0 != stopFlagStr.compare("WAIT")) && (0 != stopFlagStr.compare("ABORT")))
     NAPI_THROW_ERROR("AudioIO Quit expects \'WAIT\' or \'ABORT\' as the first argument");
   c->mStopFlag = (0 == stopFlagStr.compare("WAIT")) ? 
     PaContext::eStopFlag::WAIT : PaContext::eStopFlag::ABORT;
 
   c->status = napi_create_string_utf8(env, "Quit", NAPI_AUTO_LENGTH, &resourceName);
+  printf("@@@@:");
   REJECT_RETURN;
   c->status = napi_create_async_work(env, nullptr, resourceName, quitExecute, quitComplete,
     c, &c->_request);
+  printf("###:");
   REJECT_RETURN;
   c->status = napi_queue_async_work(env, c->_request);
   REJECT_RETURN;
-
+  printf("Quit promise: %s\n", promise);
   return promise;
 }
 
@@ -400,6 +409,7 @@ napi_value AudioIO::sWrite(napi_env env, napi_callback_info info) {
 }
 
 napi_value AudioIO::sQuit(napi_env env, napi_callback_info info) {
+  //printf("sQuit:%s", info);
   return GetInstance(env, info)->Quit(env, info);
 }
 

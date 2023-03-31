@@ -87,6 +87,13 @@ PaContext::PaContext(napi_env env, napi_value inOptions, napi_value outOptions)
   if (!((0 == inFramesPerBuffer) && (0 == outFramesPerBuffer)))
     framesPerBuffer = std::max<uint32_t>(inFramesPerBuffer, outFramesPerBuffer);
 
+
+  printf("framesPerBuffer: %d\n",framesPerBuffer);
+
+  printf("sampleRate: %f\n",sampleRate);
+  printf("inParams: device:%d ....channelCount:%d....sampleFormat:%ld.....suggestedLatency:%f\n",inParams.device,inParams.channelCount,inParams.sampleFormat,inParams.suggestedLatency);
+  printf("outParams: device:%d ....channelCount:%d....sampleFormat:%ld.....suggestedLatency:%f\n",outParams.device,outParams.channelCount,outParams.sampleFormat,outParams.suggestedLatency);
+
   errCode = Pa_IsFormatSupported(mInOptions ? &inParams : NULL, mOutOptions ? &outParams : NULL, sampleRate);
   if (errCode != paFormatIsSupported) {
     std::string err = std::string("Format not supported: ") + Pa_GetErrorText(errCode);
@@ -106,6 +113,7 @@ PaContext::PaContext(napi_env env, napi_value inOptions, napi_value outOptions)
   }
 
   const PaStreamInfo *streamInfo = Pa_GetStreamInfo(mStream);
+  //printf("streamInfo:%s",streamInfo);
   mInLatency = streamInfo->inputLatency;
 }
 
@@ -125,6 +133,7 @@ void PaContext::stop(eStopFlag flag) {
     Pa_StopStream(mStream);
   Pa_CloseStream(mStream);
   Pa_Terminate();
+  printf("Pa stream stopped\n");
 }
 
 std::shared_ptr<Chunk> PaContext::pullInChunk(uint32_t numBytes, bool &finished) {
@@ -248,10 +257,13 @@ void PaContext::setParams(napi_env env, bool isInput,
                           std::shared_ptr<AudioOptions> options, 
                           PaStreamParameters &params, double &sampleRate) {
   int32_t deviceID = (int32_t)options->deviceID();
+  printf("deviceID: %d\n",deviceID);
   if ((deviceID >= 0) && (deviceID < Pa_GetDeviceCount()))
     params.device = (PaDeviceIndex)deviceID;
   else
     params.device = isInput ? Pa_GetDefaultInputDevice() : Pa_GetDefaultOutputDevice();
+  
+  printf("params.device: %d  and paNoDevice:%d\n",params.device,paNoDevice);
   if (params.device == paNoDevice) {
     napi_throw_error(env, nullptr, "No default device");
     return;
@@ -261,12 +273,15 @@ void PaContext::setParams(napi_env env, bool isInput,
 
   params.channelCount = options->channelCount();
   int maxChannels = isInput ? Pa_GetDeviceInfo(params.device)->maxInputChannels : Pa_GetDeviceInfo(params.device)->maxOutputChannels;
+  printf("maxChannels count: %d   and params.channelCount:%d\n",maxChannels,params.channelCount );
+  
   if (params.channelCount > maxChannels) {
     napi_throw_error(env, nullptr, "Channel count exceeds maximum number of channels for device");
     return;
   }
 
   uint32_t sampleFormat = options->sampleFormat();
+  printf("sampleFormat: %d\n",sampleFormat);
   switch(sampleFormat) {
   case 1: params.sampleFormat = paFloat32; break;
   case 8: params.sampleFormat = paInt8; break;
